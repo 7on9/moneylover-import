@@ -8,3 +8,4 @@ saving_wallets:
 monthly_budget: 0
 default_wallet: "Tín Dụng Everyday"
 stale_snapshot_hours: 24
+notion_database_id: "8f8bce6b36944097b06cf5fb6ad6fbd0"
