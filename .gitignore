@@ -1,6 +1,10 @@
-data
+data/transactions.xlsx
+data/*.xlsx
+data/sync-pending.log
 chrome-data
 chromedata
 .env
 .DS_Store
 .venv
+__pycache__/
+*.pyc

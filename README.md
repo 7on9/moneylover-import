@@ -106,3 +106,82 @@ pip install -r requirements.txt
 **Invalid category** — make sure the category name in Excel matches Money Lover exactly, including accents and spacing.
 
 **Invalid title** — use `Expense` or `Income` as the prefix in the `Category` column.
+
+## Daily accountant
+
+Keep this GitHub repo **private**. The ledger files are personal finance.
+
+1. Edit `data/accountant_config.yaml`: exact Money Lover wallet names for spending + banks A/B/C, optional `monthly_budget`, and `report_email_to`.
+2. Copy mail secrets into `.env` (see `.env.example`): `REPORT_EMAIL_TO` plus either `RESEND_API_KEY` or SMTP settings.
+
+### iOS Shortcut → webhook
+
+After you create the Cursor Automation **Money Lover — ingest spend**, copy its webhook URL and auth header from the Automations editor.
+
+In the Shortcuts app:
+
+1. Add **Ask for Input** (Number) — amount.
+2. Add **Ask for Input** (Text) — note. Optional: another Ask for category.
+3. Add **Get Contents of URL**:
+   - Method: `POST`
+   - URL: the automation webhook URL
+   - Headers: the auth header from the Automations editor (name + value exactly as shown)
+   - Request body: JSON
+
+```json
+{
+  "amount": 45000,
+  "note": "Cafe Highlands",
+  "wallet": "Tín Dụng Everyday",
+  "category": "Ăn uống",
+  "type": "expense",
+  "date": "2026-09-18"
+}
+```
+
+Use Shortcut variables for `amount` and `note`. Omit `category` to let ingest suggest one. Omit `date` to use today (Vietnam). Omit `wallet` to use `default_wallet`. `type` is `expense` or `income`.
+
+4. Add **Show Notification** — `Queued for Money Lover`.
+
+The webhook agent runs `python src/ingest_spend.py '<json>'` and commits `data/inbox.jsonl` + `data/ledger.jsonl`. It does **not** open Money Lover.
+
+### Local Mac sync (writes into Money Lover)
+
+Cloud agents cannot use your Chrome profile. On this Mac, after new iOS spends (and before 21:00 if you want fresh balances in the email):
+
+```bash
+source .venv/bin/activate
+python src/sync_pending.py
+```
+
+Or: `scripts/sync-pending.sh`
+
+That imports pending inbox rows, then refreshes `data/wallet_snapshot.json`. Commit the snapshot if you want the EOD automation to see it.
+
+Optional launchd (20:00 local, before the 21:00 email):
+
+```bash
+cp scripts/com.moneylover.sync-pending.plist.example ~/Library/LaunchAgents/com.moneylover.sync-pending.plist
+# replace /ABSOLUTE/PATH/TO/moneylover-import in the plist
+launchctl load ~/Library/LaunchAgents/com.moneylover.sync-pending.plist
+```
+
+### End-of-day email
+
+Cursor Automation **Daily accountant — EOD report** runs at 21:00 Vietnam (`0 14 * * *` UTC) and should execute:
+
+```bash
+python src/send_report_email.py
+```
+
+Set the same mail env vars as automation secrets (`.env` is not in git). Preview without sending by running `python -c "from accountant import build_report; print(build_report())"` from `src/`.
+
+Report shape:
+
+```text
+Today: … | This week: … | This month: … | Balance left: …
+Saving plan: Bank A … | Bank B … | Bank C … | Saved …
+Investigate:
+  - …
+```
+

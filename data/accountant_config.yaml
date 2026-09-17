@@ -1,0 +1,10 @@
+timezone: Asia/Ho_Chi_Minh
+report_email_to: ""
+spending_wallet: "Tín Dụng Everyday"
+saving_wallets:
+  bank_a: "Bank A"
+  bank_b: "Bank B"
+  bank_c: "Bank C"
+monthly_budget: 0
+default_wallet: "Tín Dụng Everyday"
+stale_snapshot_hours: 24
