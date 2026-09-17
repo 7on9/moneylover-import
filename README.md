@@ -154,11 +154,10 @@ Or: `scripts/sync-pending.sh`
 
 That imports Notion rows with `Status=pending`, marks them `synced`, then refreshes `data/wallet_snapshot.json`.
 
-Optional launchd (20:00 local, before the 21:00 email):
+Optional launchd (20:00 local, before the 21:00 email). The plist already uses this Mac's project path. The Mac must be awake at 20:00:
 
 ```bash
 cp scripts/com.moneylover.sync-pending.plist.example ~/Library/LaunchAgents/com.moneylover.sync-pending.plist
-# replace /ABSOLUTE/PATH/TO/moneylover-import in the plist
 launchctl load ~/Library/LaunchAgents/com.moneylover.sync-pending.plist
 ```
 

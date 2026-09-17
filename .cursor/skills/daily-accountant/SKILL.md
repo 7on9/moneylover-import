@@ -31,11 +31,19 @@ If the Python write fails, you may create the same row with Notion MCP in databa
 
 ## Local Money Lover sync (Mac only)
 
+On this Mac only. Never run Selenium, Chrome, or `python src/sync_pending.py` from a cloud automation. Webhook and EOD automations stay Notion + email only.
+
+When the user says sync pending / import Notion to Money Lover, run:
+
 ```bash
+cd /Users/longnguyen/source/my/money_lover_import/moneylover-import
+source .venv/bin/activate
 python src/sync_pending.py
 ```
 
-Imports Notion rows with `Status=pending` via Selenium, marks them `synced`, refreshes `data/wallet_snapshot.json`. Needs `NOTION_TOKEN`. Cloud agents cannot do this.
+Close other Chrome windows that use `chromedata` first. Needs `NOTION_TOKEN`, `ENV=local`, and `CHROME_USER_DATA_DIR=./chromedata`. Imports Notion `Status=pending` rows, marks them `synced`, refreshes `data/wallet_snapshot.json`.
+
+Background schedule is launchd at 20:00 (`scripts/com.moneylover.sync-pending.plist.example`), not a Cursor cloud automation. A `/loop` only runs while this chat stays open.
 
 ## EOD report (cron ~21:00 Vietnam)
 
