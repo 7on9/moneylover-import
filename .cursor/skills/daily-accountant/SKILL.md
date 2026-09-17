@@ -10,32 +10,43 @@ Work from `moneylover-import/`. Spends live in Notion database **Money Lover tra
 ## Ingest (webhook)
 
 1. Parse the request JSON body (unwrap envelopes until you have the spend object).
-2. Run (requires `NOTION_TOKEN`):
+2. Read the note the user sent and decide the category for them. Prefer an exact name from `src/categories.py` `VALID_CATEGORIES`. If the payload already has a valid `category`, keep it. Otherwise choose from the note (keywords in `CATEGORY_KEYWORDS` are a starting point; use judgment when they are weak). Always pass `category` into `ingest_spend.py` so Notion stores your decision.
+3. Run (requires `NOTION_TOKEN`):
 
 ```bash
 python src/ingest_spend.py '{"amount":45000,"note":"Cafe Highlands","wallet":"Tín Dụng Everyday","category":"Ăn uống","type":"expense","date":"2026-09-18"}'
 ```
 
-3. Confirm a new Notion row with `Status=pending`. Do not commit jsonl.
-4. Print the ingested row (include Notion URL if present). Do not run Selenium in the cloud.
+4. Confirm a new Notion row with `Status=pending`. Do not commit jsonl.
+5. Print the ingested row (include Notion URL if present). Do not run Selenium in the cloud.
 
-`category` and `date` are optional. `type` defaults to `expense`. Wallet defaults to `default_wallet` in `data/accountant_config.yaml`.
+`date` is optional (defaults to today Vietnam). `type` defaults to `expense`. Wallet defaults to `default_wallet` in `data/accountant_config.yaml`. Do not omit `category` after step 2.
 
 If the Python write fails, you may create the same row with Notion MCP in database **Money Lover transactions**. Properties: Name (note), Amount, Date, Type (`expense`/`income`), Category, Category suggested, Wallet, Status=`pending`, Ingested at, Spend ID (uuid).
 
 ### Categorize
 
+- You have to read the note the user sent and decide the category for them.
 - If `category` matches a name in `src/categories.py` `VALID_CATEGORIES`, keep it.
-- Else pick from the note using `suggest_category` (already done by `ingest_spend.py`).
+- Else pick the best match from the note against `VALID_CATEGORIES` (keyword helpers in `CATEGORY_KEYWORDS` are optional).
+- Always include that `category` in the JSON passed to `ingest_spend.py`.
 - Write `Expense|Name` or `Income|Name` only when building the Excel import.
 
 ## Local Money Lover sync (Mac only)
 
+On this Mac only. Never run Selenium, Chrome, or `python src/sync_pending.py` from a cloud automation. Webhook and EOD automations stay Notion + email only.
+
+When the user says sync pending / import Notion to Money Lover, run:
+
 ```bash
+cd /Users/longnguyen/source/my/money_lover_import/moneylover-import
+source .venv/bin/activate
 python src/sync_pending.py
 ```
 
-Imports Notion rows with `Status=pending` via Selenium, marks them `synced`, refreshes `data/wallet_snapshot.json`. Needs `NOTION_TOKEN`. Cloud agents cannot do this.
+Close other Chrome windows that use `chromedata` first. Needs `NOTION_TOKEN`, `ENV=local`, and `CHROME_USER_DATA_DIR=./chromedata`. Imports Notion `Status=pending` rows, marks them `synced`, refreshes `data/wallet_snapshot.json`.
+
+Background schedule is launchd at 20:00 (`scripts/com.moneylover.sync-pending.plist.example`), not a Cursor cloud automation. A `/loop` only runs while this chat stays open.
 
 ## EOD report (cron ~21:00 Vietnam)
 

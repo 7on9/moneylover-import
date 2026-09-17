@@ -5,10 +5,10 @@
   <key>Label</key>
   <string>com.moneylover.sync-pending</string>
   <key>WorkingDirectory</key>
-  <string>/ABSOLUTE/PATH/TO/moneylover-import</string>
+  <string>/Users/longnguyen/source/my/money_lover_import/moneylover-import</string>
   <key>ProgramArguments</key>
   <array>
-    <string>/ABSOLUTE/PATH/TO/moneylover-import/scripts/sync-pending.sh</string>
+    <string>/Users/longnguyen/source/my/money_lover_import/moneylover-import/scripts/sync-pending.sh</string>
   </array>
   <key>StartCalendarInterval</key>
   <dict>
@@ -18,8 +18,8 @@
     <integer>0</integer>
   </dict>
   <key>StandardOutPath</key>
-  <string>/ABSOLUTE/PATH/TO/moneylover-import/data/sync-pending.log</string>
+  <string>/Users/longnguyen/source/my/money_lover_import/moneylover-import/data/sync-pending.log</string>
   <key>StandardErrorPath</key>
-  <string>/ABSOLUTE/PATH/TO/moneylover-import/data/sync-pending.log</string>
+  <string>/Users/longnguyen/source/my/money_lover_import/moneylover-import/data/sync-pending.log</string>
 </dict>
 </plist>
