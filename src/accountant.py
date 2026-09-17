@@ -13,12 +13,11 @@ import yaml
 from openpyxl import Workbook
 
 from categories import CATEGORY_KEYWORDS, VALID_CATEGORIES
+from notion_store import create_spend, list_all_since, list_pending, mark_pages_synced
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT / 'data'
 CONFIG_PATH = DATA_DIR / 'accountant_config.yaml'
-INBOX_PATH = DATA_DIR / 'inbox.jsonl'
-LEDGER_PATH = DATA_DIR / 'ledger.jsonl'
 SNAPSHOT_PATH = DATA_DIR / 'wallet_snapshot.json'
 REPORTS_DIR = DATA_DIR / 'reports'
 PENDING_XLSX_PATH = DATA_DIR / 'pending_import.xlsx'
@@ -35,6 +34,7 @@ DEFAULT_CONFIG = {
     'monthly_budget': 0,
     'default_wallet': 'Tín Dụng Everyday',
     'stale_snapshot_hours': 24,
+    'notion_database_id': '8f8bce6b36944097b06cf5fb6ad6fbd0',
 }
 
 
@@ -54,29 +54,6 @@ def load_config():
     saving.update(loaded.get('saving_wallets') or {})
     config['saving_wallets'] = saving
     return config
-
-
-def read_jsonl(path):
-    if not path.exists():
-        return []
-    rows = []
-    for line in path.read_text(encoding='utf-8').splitlines():
-        line = line.strip()
-        if line:
-            rows.append(json.loads(line))
-    return rows
-
-
-def write_jsonl(path, rows):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    text = ''.join(json.dumps(row, ensure_ascii=False) + '\n' for row in rows)
-    path.write_text(text, encoding='utf-8')
-
-
-def append_jsonl(path, row):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open('a', encoding='utf-8') as fh:
-        fh.write(json.dumps(row, ensure_ascii=False) + '\n')
 
 
 def parse_vnd(text):
@@ -169,15 +146,13 @@ def normalize_spend(payload, config=None):
 
 
 def ingest_spend(payload, config=None):
+    config = config or load_config()
     row = normalize_spend(payload, config)
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
-    append_jsonl(INBOX_PATH, row)
-    append_jsonl(LEDGER_PATH, row)
-    return row
+    return create_spend(row, config)
 
 
 def pending_inbox():
-    return [row for row in read_jsonl(INBOX_PATH) if row.get('status') == 'pending']
+    return list_pending(load_config())
 
 
 def write_pending_xlsx(rows, path=PENDING_XLSX_PATH):
@@ -202,21 +177,10 @@ def write_pending_xlsx(rows, path=PENDING_XLSX_PATH):
     return path
 
 
-def mark_inbox_synced(ids, tz_name=None):
-    synced_at = now_vn(tz_name).isoformat(timespec='seconds')
-    id_set = set(ids)
-    inbox = read_jsonl(INBOX_PATH)
-    for row in inbox:
-        if row.get('id') in id_set:
-            row['status'] = 'synced'
-            row['synced_at'] = synced_at
-    write_jsonl(INBOX_PATH, inbox)
-    ledger = read_jsonl(LEDGER_PATH)
-    for row in ledger:
-        if row.get('id') in id_set:
-            row['status'] = 'synced'
-            row['synced_at'] = synced_at
-    write_jsonl(LEDGER_PATH, ledger)
+def mark_inbox_synced(rows):
+    page_ids = [row['page_id'] for row in rows if row.get('page_id')]
+    if page_ids:
+        mark_pages_synced(page_ids)
 
 
 def write_snapshot(wallets, extra=None):
@@ -277,7 +241,7 @@ def investigate_plan(ledger, snapshot, config, when):
     today_s = today.strftime('%Y-%m-%d')
     month_end = today.strftime('%Y-%m-%d')
     bullets = []
-    pending = [row for row in read_jsonl(INBOX_PATH) if row.get('status') == 'pending']
+    pending = list_pending(config)
     if pending:
         bullets.append(f'{len(pending)} inbox item(s) not yet synced to Money Lover — run python src/sync_pending.py')
     age = snapshot_age_hours(snapshot, when)
@@ -316,9 +280,9 @@ def investigate_plan(ledger, snapshot, config, when):
 def build_report(config=None, when=None):
     config = config or load_config()
     when = when or now_vn(config['timezone'])
-    ledger = read_jsonl(LEDGER_PATH)
-    snapshot = load_snapshot()
     today, week_start, month_start = period_bounds(when)
+    ledger = list_all_since(config, month_start.strftime('%Y-%m-%d'))
+    snapshot = load_snapshot()
     today_s = today.strftime('%Y-%m-%d')
     week_s = week_start.strftime('%Y-%m-%d')
     month_s = month_start.strftime('%Y-%m-%d')

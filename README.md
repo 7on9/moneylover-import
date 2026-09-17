@@ -109,24 +109,22 @@ pip install -r requirements.txt
 
 ## Daily accountant
 
-Keep this GitHub repo **private**. The ledger files are personal finance.
+Spends live in the Notion database [Money Lover transactions](https://www.notion.so/8f8bce6b36944097b06cf5fb6ad6fbd0). Wallet balances stay in `data/wallet_snapshot.json` on this Mac.
 
-1. Edit `data/accountant_config.yaml`: exact Money Lover wallet names for spending + banks A/B/C, optional `monthly_budget`, and `report_email_to`.
+1. Edit `data/accountant_config.yaml`: exact Money Lover wallet names for spending + banks A/B/C, optional `monthly_budget`, and `report_email_to`. `notion_database_id` is already set.
 2. Copy mail secrets into `.env` (see `.env.example`): `REPORT_EMAIL_TO` plus either `RESEND_API_KEY` or SMTP settings.
+3. Notion API for Mac sync: create an internal integration at https://www.notion.so/my-integrations, share **Money Lover transactions** with it, put `NOTION_TOKEN` in `.env` and in Cursor Automation secrets.
 
 ### iOS Shortcut → webhook
 
-After you create the Cursor Automation **Money Lover — ingest spend**, copy its webhook URL and auth header from the Automations editor.
+1. Save Cursor Automation **Money Lover — ingest spend** (webhook, repo `7on9/moneylover-import`). Enable the Notion MCP (`notion`).
+2. Copy the webhook URL and auth header from the Automations editor.
+3. In the Shortcuts app:
 
-In the Shortcuts app:
-
-1. Add **Ask for Input** (Number) — amount.
-2. Add **Ask for Input** (Text) — note. Optional: another Ask for category.
-3. Add **Get Contents of URL**:
-   - Method: `POST`
-   - URL: the automation webhook URL
-   - Headers: the auth header from the Automations editor (name + value exactly as shown)
-   - Request body: JSON
+   - **Ask for Input** (Number) — amount.
+   - **Ask for Input** (Text) — note. Optional: another Ask for category.
+   - **Get Contents of URL**: Method `POST`, URL = webhook URL, Headers = the auth header from the editor, body JSON below.
+   - **Show Notification** — `Queued for Money Lover`.
 
 ```json
 {
@@ -141,9 +139,7 @@ In the Shortcuts app:
 
 Use Shortcut variables for `amount` and `note`. Omit `category` to let ingest suggest one. Omit `date` to use today (Vietnam). Omit `wallet` to use `default_wallet`. `type` is `expense` or `income`.
 
-4. Add **Show Notification** — `Queued for Money Lover`.
-
-The webhook agent runs `python src/ingest_spend.py '<json>'` and commits `data/inbox.jsonl` + `data/ledger.jsonl`. It does **not** open Money Lover.
+The webhook agent runs `python src/ingest_spend.py '<json>'` (needs `NOTION_TOKEN`). That creates a Notion row with `Status=pending`. It does **not** open Money Lover. Do not commit jsonl.
 
 ### Local Mac sync (writes into Money Lover)
 
@@ -156,7 +152,7 @@ python src/sync_pending.py
 
 Or: `scripts/sync-pending.sh`
 
-That imports pending inbox rows, then refreshes `data/wallet_snapshot.json`. Commit the snapshot if you want the EOD automation to see it.
+That imports Notion rows with `Status=pending`, marks them `synced`, then refreshes `data/wallet_snapshot.json`.
 
 Optional launchd (20:00 local, before the 21:00 email):
 
@@ -168,13 +164,13 @@ launchctl load ~/Library/LaunchAgents/com.moneylover.sync-pending.plist
 
 ### End-of-day email
 
-Cursor Automation **Daily accountant — EOD report** runs at 21:00 Vietnam (`0 14 * * *` UTC) and should execute:
+Cursor Automation **Daily accountant — EOD report** runs at 21:00 Vietnam (`0 14 * * *` UTC). Enable the Notion MCP and set `NOTION_TOKEN` plus mail secrets. It should execute:
 
 ```bash
 python src/send_report_email.py
 ```
 
-Set the same mail env vars as automation secrets (`.env` is not in git). Preview without sending by running `python -c "from accountant import build_report; print(build_report())"` from `src/`.
+Preview without sending: `python -c "from accountant import build_report; print(build_report())"` from `src/`.
 
 Report shape:
 

@@ -23,7 +23,7 @@ def main():
             print(f'Importing {len(pending)} pending row(s) from {xlsx_path}')
             validate_xlsx(xlsx_path)
             import_rows(driver, str(xlsx_path))
-            mark_inbox_synced([row['id'] for row in pending])
+            mark_inbox_synced(pending)
             print('Inbox rows marked synced')
         else:
             print('No pending inbox rows')

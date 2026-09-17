@@ -1,31 +1,33 @@
 ---
 name: daily-accountant
-description: Ingest iOS spend webhooks into the Money Lover ledger, categorize transactions, sync pending rows, and write the end-of-day spend/savings report plus investigate plan. Use when ingesting a spend, running the daily accountant, building the EOD email, or categorizing Money Lover transactions.
+description: Ingest iOS spend webhooks into the Notion Money Lover transactions database, categorize spends, sync pending rows into Money Lover, and write the end-of-day spend/savings report. Use when ingesting a spend, running the daily accountant, building the EOD email, or categorizing Money Lover transactions.
 ---
 
 # Daily accountant
 
-Work from `moneylover-import/`. Keep this repo private — `data/ledger.jsonl` and `data/inbox.jsonl` are personal finance.
+Work from `moneylover-import/`. Spends live in Notion database **Money Lover transactions** (`notion_database_id` in `data/accountant_config.yaml`). Do not write `data/inbox.jsonl` or `data/ledger.jsonl`.
 
 ## Ingest (webhook)
 
 1. Parse the request JSON body (unwrap envelopes until you have the spend object).
-2. Run:
+2. Run (requires `NOTION_TOKEN`):
 
 ```bash
 python src/ingest_spend.py '{"amount":45000,"note":"Cafe Highlands","wallet":"Tín Dụng Everyday","category":"Ăn uống","type":"expense","date":"2026-09-18"}'
 ```
 
-3. Commit `data/inbox.jsonl` and `data/ledger.jsonl`.
-4. Print the ingested row. Do not run Selenium in the cloud.
+3. Confirm a new Notion row with `Status=pending`. Do not commit jsonl.
+4. Print the ingested row (include Notion URL if present). Do not run Selenium in the cloud.
 
 `category` and `date` are optional. `type` defaults to `expense`. Wallet defaults to `default_wallet` in `data/accountant_config.yaml`.
+
+If the Python write fails, you may create the same row with Notion MCP in database **Money Lover transactions**. Properties: Name (note), Amount, Date, Type (`expense`/`income`), Category, Category suggested, Wallet, Status=`pending`, Ingested at, Spend ID (uuid).
 
 ### Categorize
 
 - If `category` matches a name in `src/categories.py` `VALID_CATEGORIES`, keep it.
 - Else pick from the note using `suggest_category` (already done by `ingest_spend.py`).
-- Write `Expense|Name` or `Income|Name` only when building the Excel import. Ledger stores `category` and `type` separately.
+- Write `Expense|Name` or `Income|Name` only when building the Excel import.
 
 ## Local Money Lover sync (Mac only)
 
@@ -33,13 +35,12 @@ python src/ingest_spend.py '{"amount":45000,"note":"Cafe Highlands","wallet":"T�
 python src/sync_pending.py
 ```
 
-Imports pending inbox rows via Selenium, marks them synced, refreshes `data/wallet_snapshot.json`. Cloud agents cannot do this.
+Imports Notion rows with `Status=pending` via Selenium, marks them `synced`, refreshes `data/wallet_snapshot.json`. Needs `NOTION_TOKEN`. Cloud agents cannot do this.
 
 ## EOD report (cron ~21:00 Vietnam)
 
-1. Read `data/ledger.jsonl`, `data/wallet_snapshot.json`, `data/accountant_config.yaml`.
-2. Prefer `python src/send_report_email.py` (archives `data/reports/YYYY-MM-DD.md` and emails).
-3. If you edit the investigate bullets, keep this exact shape:
+1. Prefer `python src/send_report_email.py` (reads Notion + `data/wallet_snapshot.json`, archives `data/reports/YYYY-MM-DD.md`, emails).
+2. Keep this exact shape:
 
 ```text
 Today: … | This week: … | This month: … | Balance left: …
@@ -48,12 +49,12 @@ Investigate:
   - …
 ```
 
-4. Commit the archive and any ledger/inbox/snapshot updates.
-5. Mail secrets: `REPORT_EMAIL_TO` plus `RESEND_API_KEY` or `SMTP_HOST` / `SMTP_USER` / `SMTP_PASSWORD`. Fail closed if they are missing.
+3. Commit the report archive if written. Do not commit jsonl.
+4. Secrets: `NOTION_TOKEN`, `REPORT_EMAIL_TO`, plus `RESEND_API_KEY` or `SMTP_HOST` / `SMTP_USER` / `SMTP_PASSWORD`. Fail closed if they are missing.
 
 ### Investigate checklist (2–5 bullets)
 
-- Inbox backlog not synced to Money Lover
+- Inbox backlog not synced to Money Lover (`Status=pending`)
 - Wallet snapshot missing or older than `stale_snapshot_hours`
 - Month spend ahead of `monthly_budget` pace
 - Today rows that used a suggested category
