@@ -1,0 +1,33 @@
+---
+description: Daily accountant — Notion ingest categorizes from the note; Selenium only on this Mac
+alwaysApply: true
+---
+
+# Daily accountant
+
+Spends live in Notion **Money Lover transactions** (`notion_database_id` in `data/accountant_config.yaml`). Do not write `data/inbox.jsonl` or `data/ledger.jsonl`.
+
+## Ingest (webhook / iOS spend)
+
+1. Parse the webhook JSON (amount + note required; wallet/type/date optional).
+2. You have to read the note the user sent and decide the category for them. Prefer an exact name from `src/categories.py` `VALID_CATEGORIES`. Keep a valid payload `category` if present; otherwise choose from the note. Always pass `category` into ingest.
+3. Run: `python src/ingest_spend.py '<json with amount, note, category, ...>'` (needs `NOTION_TOKEN`).
+4. Confirm Notion row `Status=pending`. Do not commit jsonl. Do not run Selenium in the cloud.
+
+## Local Money Lover sync (this Mac only)
+
+Never run Selenium / Chrome / `python src/sync_pending.py` from a cloud automation.
+
+When the user says sync pending / import Notion to Money Lover:
+
+```bash
+cd /Users/longnguyen/source/my/money_lover_import/moneylover-import
+source .venv/bin/activate
+python src/sync_pending.py
+```
+
+Background: launchd at 20:00 via `scripts/com.moneylover.sync-pending.plist.example`.
+
+## EOD
+
+Prefer `python src/send_report_email.py`. Keep the today/week/month/balance/savings/investigate report shape. Fail closed if mail or Notion secrets are missing.
